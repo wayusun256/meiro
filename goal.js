@@ -21,6 +21,7 @@ AFRAME.registerComponent('arrival-check', {
         this.data.onarrival.x,
         this.data.onarrival.y,
         this.data.onarrival.z
+
       );
 
       rig.emit('arrival');

@@ -21,6 +21,23 @@ AFRAME.registerComponent('cork-shooter', {
       if (e.code === 'Space') this.shoot();
     };
     window.addEventListener('keydown', this._onKeyDown);
+
+    // 接続されたコントローラを確認
+  this.el.sceneEl.addEventListener('controllerconnected', (e) => {
+    console.log('controller connected:', e.detail.name);
+  });
+ 
+  // スティック（thumbstick）入力確認
+  this.el.addEventListener('thumbstickmoved', (e) => {
+    console.log('thumbstick:', e.detail);
+  });
+ 
+  // トリガーボタン確認
+  this.el.addEventListener('triggerdown', () => {
+    console.log('trigger down');
+  });
+ 
+
   },
 
   shoot: function () {

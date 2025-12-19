@@ -6,10 +6,10 @@ export function startTimer() {
     //一度だけ初期化
    if (window.shot_time === undefined) {
     window.shot_time = 63; // 基本時間
+    window.time = 60;
+    window.shoting = false;
   }
 
-  let time = 60;
-  let shoting = false;
 
   textEl.setAttribute("text", `value: ${time}`);
 

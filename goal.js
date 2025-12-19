@@ -24,6 +24,9 @@ AFRAME.registerComponent('arrival-check', {
 
       );
 
+      window.time = window.shot_time;
+      window.shoting = true;
+
       rig.emit('arrival');
 
       this.el.removeAttribute('arrival-check');

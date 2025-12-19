@@ -35,7 +35,9 @@
   <a-sky color="black"></a-sky><!--空の色-->
   <!-- シンプルなプレイヤー設定 -->
   <a-entity id="rig"
-
+    movemwnt-control
+    vr-stick-move
+    vr-trigger-shoot
     arrival-check="destination: 31 1.6 35; onarrival: 100 50 100"
     
     position="3 1.6 10">
@@ -43,6 +45,7 @@
     <a-entity id="camera"
       camera
       mouse-look="sensitivity: 0.1"
+      
       cork-shooter
       position="0 0 0"
       score-display="hudSelector: #scoreHud">
@@ -468,6 +471,7 @@ const itemPositions = [
 </body>
 
 </html>
+
 
 
 

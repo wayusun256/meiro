@@ -10,7 +10,6 @@
   <script src="score-manager.js"></script>
   <script src="score-display.js"></script>
   <script src="shoot_countDown.js"></script>
-  <script src="target-life.js"></script>
 
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.2.0/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/aframe-msdf-text-component/dist/aframe-msdf-text-component.min.js"></script>
@@ -28,7 +27,7 @@
     <a-asset-item id="kabe2" src="wall.glb"></a-asset-item><!--壁-->
     <a-asset-item id="yuka" src="tile.glb"></a-asset-item><!--床-->
     <a-asset-item id="goal" src="start.glb"></a-asset-item><!--ゴール-->
-    <a-asset-item id="timer" src="timer.glb"></a-asset-item>
+    <a-asset-item id="timer" src="../timer.glb"></a-asset-item>
     <a-asset-item id="mato" src="mato.glb"></a-asset-item>
     <a-asset-item id="map" src="ku-kan.glb"></a-asset-item>
   </a-assets>
@@ -36,6 +35,7 @@
   <!-- シンプルなプレイヤー設定 -->
   <a-entity id="rig"
     movement-control
+    movement-controls="speed: 0.2; fly:false;"
     arrival-check="destination: 31 1.6 35; onarrival: 100 50 100"
     position="3 1.6 10">
     <!-- カメラの設定（感度など） -->
@@ -77,9 +77,9 @@
     <a-entity oculus-touch-controls="hand: left; model: true;" laser-controls="hand: left"></a-entity>
   </a-entity>
 
-  <a-entity gltf-model="#map"
-    position = "100 40 100"
-    scale = "3 3 3"
+  <a-entity gltfmodel="#map"
+    position = "100 50 100"
+    scale = "10 10 10"
   ></a-entity>
 
 
@@ -107,6 +107,48 @@
   マウスで視点移動 / WASDキーで移動 / ESCキーで終了
 </div>
  
+//以下2.7からの変更点
+<script> 
+  //1行下の文はグローバルスコープで動く必要があるため25行くらい下の<script type="module">の前に書く 
+  AFRAME.registerComponent("distance-check", { 
+    //schema は、コンポーネントに対してプロパティ（設定項目）を定義するために使う 
+    schema: { 
+    range: { type: "number", default: 0.5 },  // 取得距離 
+    isEnabled: { type: "boolean", default: true } // コンポーネントの有効/無効フラグ 
+  }, 
+    tick: function () { 
+      //コンポーネントが無効化されている場合、処理を終了 
+      if(!this.data.isEnabled) return; 
+
+      const item = this.el; 
+      const rig = document.querySelector("#rig"); 
+
+      if (!rig) return; 
+
+      //リグの中にカメラを付属（つまりリグにカメラがひっついており、カメラの座標自体は固定）しているので、リグの位置を取得する 
+      const rigPos = rig.object3D.position;//リグの位置取得 
+      const itemPos = item.object3D.position;//アイテムの位置取得 
+      const distance = itemPos.distanceTo(rigPos);//アイテムとカメラの距離を計算 
+
+      console.log("リグの位置: ",rigPos); // リグの位置をログ出力 
+      console.log(`アイテムとの距離: ${distance}`); // 距離をログ出力 
+
+      //「range」を使用してアイテムと自分（リグ）の距離が指定以下まで近づいたとき 
+      if (distance < this.data.range) { 
+
+        //windowをつけるとグローバル変数になり、ほかの関数で定義された変数を使用できる 
+        window.shot_time += 3; 
+
+        item.parentNode.removeChild(item);//アイテムの削除 
+        //item.removeAttribute('distance-check'); // 既存のコンポーネントを削除 
+        //distance-checkコンポーネントのenabled属性をfalseに設定する方法 
+        this.el.setAttribute("distance-check", "isEnabled", false);//1アイテム１回のみ取得判定を行うためｎフラグを使用 
+      } 
+    } 
+  }); 
+  </script> 
+//以上変更点 
+
 <script type="module">
 // ポインターロック対応のマウス視点移動コンポーネント
 AFRAME.registerComponent('mouse-look', {
@@ -183,6 +225,8 @@ AFRAME.registerComponent('mouse-look', {
 
   import './CorkFromTheEye.js';
 
+  // シンプル版（Three.jsの機能を活用）
+  // 修正版衝突判定コンポーネント
   AFRAME.registerComponent('movement-control', {
   init: function () {
     this.velocity = new THREE.Vector3();
@@ -199,88 +243,81 @@ AFRAME.registerComponent('mouse-look', {
   },
   
   tick: function () {
-  const el = this.el;
-  let pos = el.getAttribute('position');
-
-  const camera = el.querySelector('[camera]');
-  const cameraRotation = camera.getAttribute('rotation');
-  const angleY = THREE.MathUtils.degToRad(cameraRotation.y);
-
-  this.direction.set(0, 0, 0);
-
-  if (this.keys['KeyW'] || this.keys['ArrowUp']) {
-    this.direction.x -= Math.sin(angleY);
-    this.direction.z -= Math.cos(angleY);
-  }
-  if (this.keys['KeyS'] || this.keys['ArrowDown']) {
-    this.direction.x += Math.sin(angleY);
-    this.direction.z += Math.cos(angleY);
-  }
-  if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
-    this.direction.x -= Math.cos(angleY);
-    this.direction.z += Math.sin(angleY);
-  }
-  if (this.keys['KeyD'] || this.keys['ArrowRight']) {
-    this.direction.x += Math.cos(angleY);
-    this.direction.z -= Math.sin(angleY);
-  }
-
-  if (this.direction.length() > 0) {
-    this.direction.normalize();
-  }
-
-  this.velocity.copy(this.direction).multiplyScalar(this.speed);
-
-  const nextX = {
-    x: pos.x + this.velocity.x,
-    y: pos.y,
-    z: pos.z
-  };
-
-  if (!this.checkWallCollision(nextX)) {
-    pos.x = nextX.x;
-  }
-
-  const nextZ = {
-    x: pos.x,
-    y: pos.y,
-    z: pos.z + this.velocity.z
-  };
-
-  if (!this.checkWallCollision(nextZ)) {
-    pos.z = nextZ.z;
-  }
-
-  el.setAttribute('position', pos);
-},
+    const el = this.el;
+    const position = el.getAttribute('position');
+    
+    // カメラの向きを取得
+    const camera = el.querySelector('[camera]');
+    const cameraRotation = camera.getAttribute('rotation');
+    
+    // カメラのY軸回転（左右の向き）を考慮
+    const angleY = THREE.MathUtils.degToRad(cameraRotation.y);
+    
+    this.direction.set(0, 0, 0);
+    
+    // カメラの向きに基づいて移動方向を計算
+    if (this.keys['KeyW'] || this.keys['ArrowUp']) {
+      // 前：カメラの向いている方向
+      this.direction.x -= Math.sin(angleY);
+      this.direction.z -= Math.cos(angleY);
+    }
+    if (this.keys['KeyS'] || this.keys['ArrowDown']) {
+      // 後：カメラの逆方向
+      this.direction.x += Math.sin(angleY);
+      this.direction.z += Math.cos(angleY);
+    }
+    if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
+      // 左：カメラの左方向
+      this.direction.x -= Math.cos(angleY);
+      this.direction.z += Math.sin(angleY);
+    }
+    if (this.keys['KeyD'] || this.keys['ArrowRight']) {
+      // 右：カメラの右方向
+      this.direction.x += Math.cos(angleY);
+      this.direction.z -= Math.sin(angleY);
+    }
+    
+    // 正規化と速度適用
+    if (this.direction.length() > 0) {
+      this.direction.normalize();
+    }
+    
+    this.velocity.copy(this.direction).multiplyScalar(this.speed);
+    
+    // 衝突判定
+    const newPosition = {
+      x: position.x + this.velocity.x,
+      y: position.y + this.velocity.y,
+      z: position.z + this.velocity.z
+    };
+    
+    // 壁との衝突チェック
+    if (!this.checkWallCollision(newPosition)) {
+      el.setAttribute('position', newPosition);
+    }
+  },
   
-  checkWallCollision: function (position) {
-
-    // プレイヤー当たり判定（箱）
-    const playerBox = new THREE.Box3(
-      new THREE.Vector3(position.x - 0.3, position.y - 1, position.z - 0.3),
-      new THREE.Vector3(position.x + 0.3, position.y + 1, position.z + 0.3)
-    );
-
+  checkWallCollision: function(position) {
     const walls = document.querySelectorAll('.wall-collision');
-
-      for (let wall of walls) {
-        const mesh = wall.getObject3D('mesh');
-        if (!mesh) continue;
-
-        const wallBox = new THREE.Box3().setFromObject(mesh);
-
-        if (playerBox.intersectsBox(wallBox)) {
-          console.log("HIT", wall);
-          return true;
-        }
+    const playerRadius = 0.3;
+    
+    for (let wall of walls) {
+      const wallPos = wall.getAttribute('position');
+      const distance = Math.sqrt(
+        Math.pow(position.x - wallPos.x, 2) +
+        Math.pow(position.z - wallPos.z, 2)
+      );
+      
+      // 壁との距離が近すぎる場合は衝突
+      if (distance < playerRadius + 1) {
+        return true;
       }
-      return false;
+    }
+    return false;
   }
-
 });
 
-import { createKabe } from "./createkabe.js";
+import { createKabe } from "./createKabe.js";
 import { createFloors } from "./floor.js";
 import { putTimer } from "./putTimer.js";
 import { startTimer } from './timer.js';

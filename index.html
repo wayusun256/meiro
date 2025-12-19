@@ -35,17 +35,15 @@
   <a-sky color="black"></a-sky><!--空の色-->
   <!-- シンプルなプレイヤー設定 -->
   <a-entity id="rig"
-    movemwnt-control
+    movement-control
+    arrival-check="destination: 31 1.6 35; onarrival: 100 50 100"
     vr-stick-move
     vr-trigger-shoot
-    arrival-check="destination: 31 1.6 35; onarrival: 100 50 100"
-    
     position="3 1.6 10">
     <!-- カメラの設定（感度など） -->
     <a-entity id="camera"
       camera
       mouse-look="sensitivity: 0.1"
-      
       cork-shooter
       position="0 0 0"
       score-display="hudSelector: #scoreHud">
@@ -86,6 +84,8 @@
 
 
     </a-entity>
+    <a-entity oculus-touch-controls="hand: right; model: true;" laser-controls="hand: right"></a-entity>
+    <a-entity oculus-touch-controls="hand: left; model: true;" laser-controls="hand: left"></a-entity>
   </a-entity>
 
   <a-entity gltf-model="#map"
@@ -469,9 +469,4 @@ const itemPositions = [
 
 </script>
 </body>
-
 </html>
-
-
-
-

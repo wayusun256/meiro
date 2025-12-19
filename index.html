@@ -37,6 +37,8 @@
   <a-entity id="rig"
     movement-control
     arrival-check="destination: 31 1.6 35; onarrival: 100 50 100"
+    vr-stick-move
+    vr-trigger-shoot
     position="3 1.6 10">
     <!-- カメラの設定（感度など） -->
     <a-entity id="camera"
@@ -319,6 +321,105 @@ AFRAME.registerComponent('mouse-look', {
   }
 
 });
+
+AFRAME.registerComponent('vr-stick-move', { //スティック操作コンポーネント
+  schema: {
+    speed: { default: 0.08 }
+  },
+ 
+  init: function () {
+    this.direction = new THREE.Vector3();
+  },
+ 
+  tick: function () {
+    const rig = this.el;
+    const rightHand = document.querySelector('[oculus-touch-controls][hand="right"]');
+    if (!rightHand) return;
+ 
+    const controls = rightHand.components['oculus-touch-controls'];
+    if (!controls || !controls.controller) return;
+ 
+    const gamepad = controls.controller.gamepad;
+    if (!gamepad) return;
+ 
+    // Quest系：右スティック
+    const moveX = gamepad.axes[2]; // 左右
+    const moveZ = gamepad.axes[3]; // 前後
+ 
+    if (Math.abs(moveX) < 0.15 && Math.abs(moveZ) < 0.15) return;
+ 
+    const camera = rig.querySelector('[camera]');
+    const rotY = THREE.MathUtils.degToRad(
+      camera.getAttribute('rotation').y
+    );
+ 
+    this.direction.set(
+      -Math.sin(rotY) * moveZ + Math.cos(rotY) * moveX,
+      0,
+      -Math.cos(rotY) * moveZ - Math.sin(rotY) * moveX
+    ).normalize();
+ 
+    const pos = rig.getAttribute('position');
+ 
+    const nextX = {
+      x: pos.x + this.direction.x * this.data.speed,
+      y: pos.y,
+      z: pos.z
+    };
+    if (!rig.components['movement-control'].checkWallCollision(nextX)) {
+      pos.x = nextX.x;
+    }
+ 
+    const nextZ = {
+      x: pos.x,
+      y: pos.y,
+      z: pos.z + this.direction.z * this.data.speed
+    };
+    if (!rig.components['movement-control'].checkWallCollision(nextZ)) {
+      pos.z = nextZ.z;
+    }
+ 
+    rig.setAttribute('position', pos);
+  }
+});
+ 
+AFRAME.registerComponent('vr-trigger-shoot', { //トリガー操作コンポーネント
+  init: function () {
+    this.prevPressed = false;
+  },
+ 
+  tick: function () {
+    const rightHand = document.querySelector('[oculus-touch-controls][hand="right"]');
+    if (!rightHand) return;
+ 
+    const controls = rightHand.components['oculus-touch-controls'];
+    if (!controls || !controls.controller) return;
+ 
+    const gamepad = controls.controller.gamepad;
+    if (!gamepad) return;
+ 
+    const pressed = gamepad.buttons[0].pressed; // トリガー
+ 
+    // 押した瞬間だけ
+    if (pressed && !this.prevPressed) {
+      this.fire();
+    }
+ 
+    this.prevPressed = pressed;
+  },
+ 
+  fire: function () {
+    const camera = document.querySelector('#camera');
+    if (!camera) return;
+ 
+    const shooter = camera.components['cork-shooter'];
+    if (shooter && shooter.shootCork) {
+      shooter.shootCork(); // ← スペースキーと完全に同じ処理
+    }
+  }
+});
+ 
+
 
 import { createKabe } from "./createkabe.js";
 import { createFloors } from "./floor.js";

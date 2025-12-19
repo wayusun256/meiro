@@ -133,7 +133,7 @@ AFRAME.registerComponent('cork-shooter', {
       if (hitInfo && cork.userData.traveled >= hitInfo.distance) {
         // スコア加算
         document.querySelector('#scoreManager')
-          .emit('addScore', { value: 10 });
+          .emit('addScore', { value: 1000 });
 
         // HIT表示
         this.showHitText(hitInfo.point);

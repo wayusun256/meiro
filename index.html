@@ -10,6 +10,7 @@
   <script src="score-manager.js"></script>
   <script src="score-display.js"></script>
   <script src="shoot_countDown.js"></script>
+  <script src="target-life.js"></script>
 
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.2.0/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/aframe-msdf-text-component/dist/aframe-msdf-text-component.min.js"></script>
@@ -27,7 +28,7 @@
     <a-asset-item id="kabe2" src="wall.glb"></a-asset-item><!--壁-->
     <a-asset-item id="yuka" src="tile.glb"></a-asset-item><!--床-->
     <a-asset-item id="goal" src="start.glb"></a-asset-item><!--ゴール-->
-    <a-asset-item id="timer" src="../timer.glb"></a-asset-item>
+    <a-asset-item id="timer" src="timer.glb"></a-asset-item>
     <a-asset-item id="mato" src="mato.glb"></a-asset-item>
     <a-asset-item id="map" src="ku-kan.glb"></a-asset-item>
   </a-assets>
@@ -279,7 +280,7 @@ AFRAME.registerComponent('mouse-look', {
 
 });
 
-import { createKabe } from "./createKabe.js";
+import { createKabe } from "./createkabe.js";
 import { createFloors } from "./floor.js";
 import { putTimer } from "./putTimer.js";
 import { startTimer } from './timer.js';

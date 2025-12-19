@@ -1,107 +1,175 @@
 // CorkFromTheEye.js
-import { maxCorks } from "./config.js"; // 残弾数設定
+import { maxCorks } from "./config.js";
 
 window.canShoot = true;
 
 AFRAME.registerComponent('cork-shooter', {
   schema: {
-    speed: { type: 'number', default: 0.5 },
-    maxDistance: { type: 'number', default: 20 }
+    speed: { type: 'number', default: 0.6 },
+    maxDistance: { type: 'number', default: 200 }
   },
 
   init: function () {
-    this.corks = [];
     this.remaining = maxCorks;
     this.cameraEl = this.el;
+    this.corks = [];
 
-    // HUD参照
     this.hudEntity = document.querySelector('#ammoHud');
-    if (this.hudEntity) {
-      this.hudEntity.setAttribute('text', 'value', `AMMO: ${this.remaining}`);
-    }
+    this.updateAmmo();
 
-    // スペースキーでコルク発射
-    this._onKeyDown = (e) => { if (e.code === 'Space') this.shootCork(); };
+    this._onKeyDown = (e) => {
+      if (e.code === 'Space') this.shoot();
+    };
     window.addEventListener('keydown', this._onKeyDown);
   },
 
-  shootCork: function () {
+  shoot: function () {
     if (this.remaining <= 0) return;
-    if(!window.canShoot) return;//時間切れで発射不可
+    if (!window.canShoot) return;
 
-    const cork = document.createElement('a-entity');
-    cork.setAttribute('gltf-model', '#cork');
-    cork.setAttribute('scale', '0.2 0.2 0.2');
-
-    // 発射位置・方向
+    /* =========
+       発射位置・方向
+    ========= */
     const startPos = new THREE.Vector3();
-    const direction = new THREE.Vector3(0, 0, -1);
+    const dir = new THREE.Vector3(0, 0, -1);
+
     this.cameraEl.object3D.getWorldPosition(startPos);
-    direction.applyQuaternion(this.cameraEl.object3D.quaternion);
-    startPos.add(direction.clone().multiplyScalar(0.5));
-    cork.setAttribute('position', startPos);
+    dir.applyQuaternion(this.cameraEl.object3D.quaternion).normalize();
 
-    cork.userData = {
-      startPos: startPos.clone(),
-      direction: direction.clone()
-    };
+    /* =========
+       Raycaster（命中地点取得）
+    ========= */
+    const raycaster = new THREE.Raycaster(
+      startPos,
+      dir,
+      0,
+      this.data.maxDistance
+    );
 
-    this.el.sceneEl.appendChild(cork);
-    this.corks.push(cork);
+    const targets = Array.from(document.querySelectorAll('.target'))
+      .map(t => t.object3D);
 
-    // 残弾数更新
-    this.remaining--;
-    if (this.hudEntity) {
-      this.hudEntity.setAttribute('text', 'value', `AMMO: ${this.remaining}`);
+    const hits = raycaster.intersectObjects(targets, true);
+
+    let hitInfo = null;
+
+    if (hits.length > 0) {
+      const hit = hits[0];
+      const targetEl = hit.object.el.closest('.target');
+
+      if (targetEl) {
+        hitInfo = {
+          distance: hit.distance,
+          point: hit.point.clone(),
+          targetEl
+        };
+      }
     }
+
+    /* =========
+      見た目用コルク生成
+    ========= */
+     const cork = document.createElement('a-entity');
+      cork.setAttribute('gltf-model', '#cork');
+      cork.setAttribute('scale', '0.2 0.2 0.2');
+
+      cork.object3D.position.copy(
+        startPos.clone().add(dir.clone().multiplyScalar(0.4))
+      );
+
+      /* ★ 進行方向に向ける ★ */
+      const modelForward = new THREE.Vector3(1, 0, 0); // ← cork.glbの前方向
+      const quat = new THREE.Quaternion();
+      quat.setFromUnitVectors(
+        modelForward,
+        dir.clone().normalize()
+      );
+      cork.object3D.quaternion.copy(quat);
+
+      cork.userData = {
+        direction: dir.clone(),
+        traveled: 0,
+        hitInfo
+      };
+
+      this.el.sceneEl.appendChild(cork);
+      this.corks.push(cork);
+
+    this.remaining--;
+    this.updateAmmo();
   },
 
   tick: function () {
     const removeList = [];
 
-    this.corks.forEach((cork) => {
-      // コルク移動
-      const move = cork.userData.direction.clone().multiplyScalar(this.data.speed);
+    this.corks.forEach(cork => {
+      const move = cork.userData.direction
+        .clone()
+        .multiplyScalar(this.data.speed);
+
       cork.object3D.position.add(move);
+      cork.userData.traveled += move.length();
 
-      // 最大距離チェック
-      const traveled = cork.object3D.position.distanceTo(cork.userData.startPos);
-      if (traveled > this.data.maxDistance) removeList.push(cork);
+      const hitInfo = cork.userData.hitInfo;
 
-      // 当たり判定（ターゲットの見た目サイズを考慮）
-      const targets = document.querySelectorAll('.target');
-      targets.forEach(target => {
-        const targetPos = target.object3D.position;
-        const bbox = new THREE.Box3().setFromObject(target.object3D);
-        const size = new THREE.Vector3();
-        bbox.getSize(size);
-        const radius = Math.max(size.x, size.y, size.z) * 1.5 ;
+      // ===== 命中地点に到達 =====
+      if (hitInfo && cork.userData.traveled >= hitInfo.distance) {
+        // スコア加算
+        document.querySelector('#scoreManager')
+          .emit('addScore', { value: 10 });
 
-        if (cork.object3D.position.distanceTo(targetPos) < radius) {
-          // スコア加算
-          const scoreManager = document.querySelector('#scoreManager');
-          scoreManager.emit('addScore', { value: 10 });
+        // HIT表示
+        this.showHitText(hitInfo.point);
 
-          // ターゲット削除
-          if (target.parentNode) target.parentNode.removeChild(target);
-
-          // コルク削除
-          removeList.push(cork);
+        // 的削除
+        if (hitInfo.targetEl.parentNode) {
+          hitInfo.targetEl.parentNode.removeChild(hitInfo.targetEl);
         }
-      });
+
+        removeList.push(cork);
+        return;
+      }
+
+      // ===== 命中なしで最大距離 =====
+      if (!hitInfo && cork.userData.traveled > this.data.maxDistance) {
+        removeList.push(cork);
+      }
     });
 
-    // コルク削除
-    removeList.forEach((cork) => {
+    removeList.forEach(cork => {
       if (cork.parentNode) cork.parentNode.removeChild(cork);
-      const idx = this.corks.indexOf(cork);
-      if (idx !== -1) this.corks.splice(idx, 1);
+      this.corks.splice(this.corks.indexOf(cork), 1);
     });
   },
 
+  showHitText: function (pos) {
+    const text = document.createElement('a-entity');
+    text.setAttribute('text', {
+      value: 'HIT!',
+      color: 'red',
+      align: 'center'
+    });
+    text.setAttribute('position', pos);
+    text.setAttribute('scale', '2 2 2');
+
+    this.el.sceneEl.appendChild(text);
+
+    setTimeout(() => {
+      if (text.parentNode) text.parentNode.removeChild(text);
+    }, 700);
+  },
+
+  updateAmmo: function () {
+    if (this.hudEntity) {
+      this.hudEntity.setAttribute(
+        'text',
+        'value',
+        `AMMO: ${this.remaining}`
+      );
+    }
+  },
+
   remove: function () {
-    try {
-      window.removeEventListener('keydown', this._onKeyDown);
-    } catch (e) { /* ignore */ }
+    window.removeEventListener('keydown', this._onKeyDown);
   }
 });
